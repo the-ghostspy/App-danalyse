@@ -1,0 +1,339 @@
+# Version HTML COMPLÈTE avec stockage local - PAS besoin de serveur Flask !
+# Sauvegarde ce code dans Pydroid 3 et exécute-le - il créera le fichier HTML
+
+html_code = """<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>THE SPY - Paludisme Cameroun</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: system-ui, sans-serif; background: #f0f2f5; padding-bottom: 20px; }
+        header { background: #0a0f1a; color: white; padding: 16px; text-align: center; }
+        nav { display: flex; background: white; padding: 8px; gap: 6px; position: sticky; top: 0; z-index: 100; }
+        .nav-link { flex: 1; background: #f0f2f5; border: none; padding: 10px; border-radius: 30px; font-weight: 600; cursor: pointer; }
+        .nav-link.active { background: #0a0f1a; color: white; }
+        .page { display: none; padding: 16px; }
+        .page.active { display: block; }
+        .card { background: white; border-radius: 20px; padding: 20px; margin-bottom: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
+        .card h3 { margin-bottom: 16px; }
+        .stats-grid { display: flex; gap: 12px; text-align: center; flex-wrap: wrap; }
+        .stats-grid div { flex: 1; background: #f8fafc; padding: 16px; border-radius: 16px; min-width: 100px; }
+        .stats-grid strong { font-size: 1.8rem; display: block; }
+        input, select { width: 100%; padding: 10px; margin: 5px 0 10px 0; border-radius: 12px; border: 1px solid #ccc; font-size: 16px; }
+        button { width: 100%; background: #0a0f1a; color: white; padding: 12px; border-radius: 40px; font-weight: bold; font-size: 16px; border: none; cursor: pointer; }
+        .alert-item { background: #fee2e2; padding: 12px; border-radius: 12px; margin-bottom: 10px; border-left: 4px solid #e74c3c; }
+        #map { height: 400px; border-radius: 16px; }
+        .message { padding: 10px; border-radius: 30px; text-align: center; margin-top: 10px; }
+        .success { background: #d4edda; color: #155724; }
+        .error { background: #f8d7da; color: #721c24; }
+        footer { text-align: center; padding: 20px; font-size: 0.7rem; color: #6c757d; }
+        label { font-weight: 600; font-size: 0.85rem; display: block; margin-top: 10px; }
+    </style>
+</head>
+<body>
+<header>
+    <div><strong>THE SPY DATA ANALYST</strong><br><small>Surveillance paludisme – Cameroun</small></div>
+</header>
+
+<nav>
+    <button class="nav-link active" data-page="signal">➕ Signalement</button>
+    <button class="nav-link" data-page="stats">📊 Dashboard</button>
+    <button class="nav-link" data-page="map">🗺️ Carte</button>
+    <button class="nav-link" data-page="alerts">⚠️ Alertes</button>
+</nav>
+
+<div id="page-signal" class="page active">
+    <div class="card">
+        <h3>📝 Nouveau signalement</h3>
+        <form id="formCas">
+            <label>🌍 Région</label>
+            <select id="region">
+                <option value="Littoral">🌊 Littoral (Douala)</option>
+                <option value="Centre">🏙️ Centre (Yaoundé)</option>
+                <option value="Ouest">⛰️ Ouest (Bafoussam)</option>
+                <option value="Nord">🏜️ Nord (Garoua)</option>
+                <option value="Extrême-Nord">🔥 Extrême-Nord (Maroua)</option>
+                <option value="Sud">🌴 Sud (Ebolowa)</option>
+                <option value="Adamaoua">🐄 Adamaoua (Ngaoundéré)</option>
+                <option value="Est">🌳 Est (Bertoua)</option>
+                <option value="Nord-Ouest">⛰️ Nord-Ouest (Bamenda)</option>
+                <option value="Sud-Ouest">🏖️ Sud-Ouest (Buéa)</option>
+            </select>
+            
+            <label>🏙️ District / Ville</label>
+            <input type="text" id="district" placeholder="Ex: Yaoundé" required>
+            
+            <label>👤 Âge (ans)</label>
+            <input type="number" id="age" required>
+            
+            <label>🌡️ Température (°C)</label>
+            <input type="number" step="0.1" id="temperature" required>
+            
+            <label>🧪 Test rapide (TDR)</label>
+            <select id="test">
+                <option value="Positif">✅ Positif</option>
+                <option value="Négatif">❌ Négatif</option>
+            </select>
+            
+            <label>💊 Traitement dans les 48h</label>
+            <select id="traitement">
+                <option value="Oui">✅ Oui</option>
+                <option value="Non">❌ Non</option>
+            </select>
+            
+            <button type="submit">🚀 ENVOYER LE SIGNALEMENT</button>
+            <div id="message" class="message"></div>
+        </form>
+    </div>
+</div>
+
+<div id="page-stats" class="page">
+    <div class="card">
+        <h3>📊 Indicateurs clés</h3>
+        <div class="stats-grid">
+            <div><strong id="totalCas">0</strong><br>📋 Signalements</div>
+            <div><strong id="tauxTraitement">0%</strong><br>💊 Traitement ≤48h</div>
+            <div><strong id="tauxPositifs">0%</strong><br>🧪 Tests positifs</div>
+        </div>
+    </div>
+    <div class="card">
+        <h3>📈 Évolution (7 derniers jours)</h3>
+        <canvas id="chartEvolution"></canvas>
+    </div>
+    <div class="card">
+        <h3>🏆 Régions les plus touchées</h3>
+        <div id="topRegions"></div>
+    </div>
+</div>
+
+<div id="page-map" class="page">
+    <div class="card">
+        <h3>🗺️ Zones à risque</h3>
+        <div id="map"></div>
+    </div>
+</div>
+
+<div id="page-alerts" class="page">
+    <div class="card">
+        <h3>⚠️ Alertes épidémiologiques</h3>
+        <div id="alertsList"></div>
+    </div>
+</div>
+
+<footer>© THE SPY Data Analyst – Données anonymisées – Cameroun</footer>
+
+<script>
+let chart, map;
+let casData = JSON.parse(localStorage.getItem('casData') || '[]');
+
+const regionsCoords = {
+    'Littoral': [4.05, 9.77],
+    'Centre': [3.87, 11.52],
+    'Ouest': [5.45, 10.40],
+    'Nord': [8.50, 13.80],
+    'Extrême-Nord': [10.60, 14.30],
+    'Sud': [2.90, 11.50],
+    'Adamaoua': [6.50, 13.50],
+    'Est': [4.50, 13.50],
+    'Nord-Ouest': [5.96, 10.15],
+    'Sud-Ouest': [4.21, 9.36]
+};
+
+function sauvegarder() {
+    localStorage.setItem('casData', JSON.stringify(casData));
+}
+
+function getStats() {
+    let total = casData.length;
+    let traitement = total > 0 ? (casData.filter(c => c.traitement === 'Oui').length / total * 100) : 0;
+    let positifs = total > 0 ? (casData.filter(c => c.test === 'Positif').length / total * 100) : 0;
+    
+    document.getElementById('totalCas').innerText = total;
+    document.getElementById('tauxTraitement').innerText = Math.round(traitement) + '%';
+    document.getElementById('tauxPositifs').innerText = Math.round(positifs) + '%';
+    
+    let regions = {};
+    casData.forEach(c => {
+        regions[c.region] = (regions[c.region] || 0) + 1;
+    });
+    
+    let topRegionsHtml = Object.entries(regions)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 3)
+        .map(r => `<div><strong>${r[0]}</strong> : ${r[1]} cas</div>`)
+        .join('');
+    
+    document.getElementById('topRegions').innerHTML = topRegionsHtml || '<div>Aucun signalement</div>';
+    
+    // Graphique évolution
+    let dates = [];
+    let counts = [];
+    for (let i = 6; i >= 0; i--) {
+        let d = new Date();
+        d.setDate(d.getDate() - i);
+        let dateStr = d.toLocaleDateString();
+        dates.push(dateStr);
+        counts.push(0);
+    }
+    
+    casData.forEach(c => {
+        let dateCas = new Date(c.date).toLocaleDateString();
+        let idx = dates.indexOf(dateCas);
+        if (idx !== -1) counts[idx]++;
+    });
+    
+    if (chart) chart.destroy();
+    chart = new Chart(document.getElementById('chartEvolution'), {
+        type: 'line',
+        data: {
+            labels: dates,
+            datasets: [{
+                label: 'Cas déclarés',
+                data: counts,
+                borderColor: '#e74c3c',
+                backgroundColor: 'rgba(231, 76, 60, 0.1)',
+                tension: 0.3,
+                fill: true
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true
+        }
+    });
+}
+
+function chargerCarte() {
+    if (map) map.remove();
+    map = L.map('map').setView([5.5, 12.5], 6);
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png').addTo(map);
+    
+    let regionsCount = {};
+    casData.forEach(c => {
+        regionsCount[c.region] = (regionsCount[c.region] || 0) + 1;
+    });
+    
+    Object.entries(regionsCoords).forEach(([nom, coords]) => {
+        let cases = regionsCount[nom] || 0;
+        let color = cases > 8 ? '#e74c3c' : (cases > 3 ? '#f39c12' : '#2ecc71');
+        let radius = Math.min(30, 10 + cases / 2);
+        
+        L.circleMarker(coords, {
+            radius: radius,
+            color: color,
+            fillColor: color,
+            fillOpacity: 0.7,
+            weight: 2
+        }).addTo(map).bindPopup(`
+            <b>${nom}</b><br>
+            📋 ${cases} cas<br>
+            ${cases > 8 ? '🚨 ALERTE ÉPIDÉMIQUE' : ''}
+        `);
+    });
+}
+
+function chargerAlertes() {
+    let regionsCount = {};
+    casData.forEach(c => {
+        regionsCount[c.region] = (regionsCount[c.region] || 0) + 1;
+    });
+    
+    let alerts = Object.entries(regionsCount).filter(([_, total]) => total > 8);
+    
+    if (alerts.length > 0) {
+        document.getElementById('alertsList').innerHTML = alerts.map(([region, total]) => `
+            <div class="alert-item">
+                <strong>🚨 ${region}</strong><br>
+                📋 ${total} cas signalés<br>
+                ⚠️ Seuil critique dépassé (8 cas)<br>
+                🔥 Recommandation : Action immédiate requise
+            </div>
+        `).join('');
+    } else {
+        document.getElementById('alertsList').innerHTML = '<div class="alert-item" style="background:#d4edda; border-left-color:#2ecc71;">✅ Aucune alerte active - Situation sous contrôle</div>';
+    }
+}
+
+// Formulaire d'envoi
+document.getElementById('formCas').addEventListener('submit', (e) => {
+    e.preventDefault();
+    
+    let nouveauCas = {
+        region: document.getElementById('region').value,
+        district: document.getElementById('district').value,
+        age: document.getElementById('age').value,
+        temperature: document.getElementById('temperature').value,
+        test: document.getElementById('test').value,
+        traitement: document.getElementById('traitement').value,
+        date: new Date().toISOString()
+    };
+    
+    casData.push(nouveauCas);
+    sauvegarder();
+    
+    // Message de confirmation
+    let msgDiv = document.getElementById('message');
+    msgDiv.className = 'message success';
+    msgDiv.innerText = '✅ Signalement enregistré avec succès !';
+    
+    // Réinitialiser le formulaire
+    document.getElementById('formCas').reset();
+    
+    // Rafraîchir les affichages
+    getStats();
+    chargerCarte();
+    chargerAlertes();
+    
+    // Effacer le message après 3 secondes
+    setTimeout(() => {
+        msgDiv.innerText = '';
+        msgDiv.className = 'message';
+    }, 3000);
+});
+
+// Navigation entre onglets
+document.querySelectorAll('.nav-link').forEach(btn => {
+    btn.addEventListener('click', () => {
+        document.querySelectorAll('.nav-link').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+        
+        btn.classList.add('active');
+        let pageId = `page-${btn.dataset.page}`;
+        document.getElementById(pageId).classList.add('active');
+        
+        if (btn.dataset.page === 'map') {
+            setTimeout(() => map?.invalidateSize(), 100);
+        }
+        if (btn.dataset.page === 'stats') {
+            getStats();
+        }
+    });
+});
+
+// Chargement initial
+getStats();
+chargerCarte();
+chargerAlertes();
+</script>
+</body>
+</html>"""
+
+# Créer le fichier HTML
+with open('paludisme.html', 'w', encoding='utf-8') as f:
+    f.write(html_code)
+
+print("=" * 50)
+print("✅ Fichier 'paludisme.html' créé avec succès !")
+print("=" * 50)
+print("\n📂 Pour utiliser l'application :")
+print("   1️⃣ Clique sur le fichier 'paludisme.html' dans Pydroid")
+print("   2️⃣ Ouvre-le avec ton navigateur Chrome")
+print("   3️⃣ L'application fonctionne SANS serveur !")
+print("\n💾 Les données sont automatiquement sauvegardées dans ton navigateur")
+print("🔄 Tu peux fermer et rouvrir, les données restent")
+print("=" * 50)
